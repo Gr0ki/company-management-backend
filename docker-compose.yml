@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres
+    container_name: pgdb-be-int
+    environment:
+      - POSTGRES_DB=${PSQL_DB}
+      - POSTGRES_USER=${PSQL_USER}
+      - POSTGRES_PASSWORD=${PSQL_PASSWORD}
+      - TZ=${TZ}
+    ports:
+      - "${PSQL_PORT}:${PSQL_PORT}"
+    volumes:
+      - psql_data:/var/lib/postgresql/data
+    networks:
+      - BE-network
+
+  db-test:
+    image: postgres
+    container_name: pgdb-test-be-int
+    environment:
+      - POSTGRES_DB=${PSQL_TEST_DB}
+      - POSTGRES_USER=${PSQL_USER}
+      - POSTGRES_PASSWORD=${PSQL_PASSWORD}
+      - TZ=${TZ}
+    ports:
+      - "${PSQL_TEST_PORT}:${PSQL_TEST_PORT}"
+    networks:
+      - BE-network
+
+  cache:
+    image: redis:alpine3.18
+    hostname: redis
+    container_name: cache-redis-be-int
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PORT=${REDIS_PORT}
+      - TZ=${TZ}
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
+    command: >
+      sh -c "redis-server --requirepass ${REDIS_PASSWORD}"
+    networks:
+      - BE-network
+
+  backend:
+    build:
+      context: ./
+      dockerfile: ./dockerfiles/fastapi/Dockerfile
+      args:
+        - DEV=${DEV}
+    environment:
+      - DEV=${DEV}
+      - TZ=${TZ}
+    container_name: backend
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    volumes:
+      - ./app/:/home/app-user/int-project/app
+      # - ./tests/:/home/app-user/int-project/tests
+      # Could be uncomented on dev stage. Do not commit uncomented.
+      # Tests could be passed to CI pipeline by specifing DEV value as True in .env.
+    command: >
+      sh -c "/venv/bin/alembic -c ./app/migrations/alembic.ini upgrade head
+      && /venv/bin/python3 -m app.main"
+    networks:
+      - BE-network
+    depends_on:
+      - db
+      - db-test
+      - cache
+
+volumes:
+  psql_data:
+
+networks:
+  BE-network:

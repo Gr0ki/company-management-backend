@@ -1,0 +1,10 @@
+*
+
+!.env
+!app/
+!dockerfiles/fastapi/requirements/
+!tests/
+!logging.conf
+
+**/__pycache__/
+.pytest_cache/
